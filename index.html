@@ -799,6 +799,26 @@
           </button>
         </div>
 
+        <!-- Ringkasan Stok Standar -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="bg-ivory border border-stoneLine rounded-2xl p-4">
+            <p class="text-[10px] tracking-[0.14em] uppercase text-taupe font-medium">Total Model</p>
+            <p id="statCatModels" class="font-editorial text-2xl text-obsidian mt-1">0</p>
+          </div>
+          <div class="bg-ivory border border-stoneLine rounded-2xl p-4">
+            <p class="text-[10px] tracking-[0.14em] uppercase text-taupe font-medium">Total Unit Stok</p>
+            <p id="statCatUnits" class="font-editorial text-2xl text-obsidian mt-1">0</p>
+          </div>
+          <div class="bg-ivory border border-stoneLine rounded-2xl p-4">
+            <p class="text-[10px] tracking-[0.14em] uppercase text-taupe font-medium">Stok Menipis (&le; 3)</p>
+            <p id="statCatLow" class="font-editorial text-2xl text-amber-700 mt-1">0</p>
+          </div>
+          <div class="bg-ivory border border-stoneLine rounded-2xl p-4">
+            <p class="text-[10px] tracking-[0.14em] uppercase text-taupe font-medium">Tampil di Toko</p>
+            <p id="statCatActive" class="font-editorial text-2xl text-emerald-700 mt-1">0</p>
+          </div>
+        </div>
+
         <div class="bg-ivory border border-stoneLine rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
           <div class="sm:col-span-7 relative">
             <i data-lucide="search" class="w-4 h-4 text-taupe absolute left-3.5 top-1/2 -translate-y-1/2"></i>
@@ -1804,6 +1824,17 @@
         sunglasses: IMG_3,
       };
 
+      function getProductImageSrc(p) {
+        if (!p) return IMAGE_PRESETS.titanium;
+        if (p.mediaId && typeof cloudMediaCache !== 'undefined' && cloudMediaCache[p.mediaId]) {
+          return cloudMediaCache[p.mediaId];
+        }
+        if (typeof p.image === 'string' && (p.image.startsWith('data:image/') || p.image.startsWith('https://') || p.image.startsWith('http://'))) {
+          return p.image;
+        }
+        return IMAGE_PRESETS[p.imageKey || p.category] || IMAGE_PRESETS.titanium;
+      }
+
       const DEFAULT_STORE_SETTINGS = {
         address: 'Kebon Jeruk, Jakarta Barat, DKI Jakarta',
         hours: 'Senin – Minggu, 10.00 – 20.00 WIB',
@@ -2006,10 +2037,17 @@
           if (savedWish) state.wishlist = JSON.parse(savedWish);
           const savedProducts = localStorage.getItem('oj_products_v1');
           if (savedProducts) {
-            PRODUCTS = JSON.parse(savedProducts);
+            const parsedProds = JSON.parse(savedProducts);
+            PRODUCTS = Array.isArray(parsedProds) && parsedProds.length > 0
+              ? parsedProds
+              : JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
           } else {
             PRODUCTS = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
           }
+          PRODUCTS.forEach((p) => {
+            if (!p.imageKey) p.imageKey = p.category || 'titanium';
+            p.image = getProductImageSrc(p);
+          });
           const savedSettings = localStorage.getItem('oj_settings_v1');
           if (savedSettings) {
             const parsedSettings = JSON.parse(savedSettings);
@@ -2287,12 +2325,10 @@
       function applyRemoteCatalog(items) {
         if (!Array.isArray(items) || items.length === 0) return;
         fbApplyingRemote = true;
-        const imgById = {};
-        PRODUCTS.forEach((p) => { imgById[p.id] = p.image; });
-        const fallbackImg = PRODUCTS[0] ? PRODUCTS[0].image : '';
         PRODUCTS.length = 0;
         items.forEach((item) => {
-          if (!item.image) item.image = (item.mediaId && cloudMediaCache[item.mediaId]) || imgById[item.id] || fallbackImg;
+          if (!item.imageKey) item.imageKey = item.category || 'titanium';
+          item.image = getProductImageSrc(item);
           PRODUCTS.push(item);
         });
         renderProducts();
@@ -2625,13 +2661,22 @@
           ? visibleProducts
           : visibleProducts.filter((p) => p.category === state.category);
 
+        if (items.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full bg-ivory border border-stoneLine rounded-2xl p-10 text-center space-y-2">
+              <p class="font-editorial text-xl text-obsidian">Belum ada koleksi pada kategori ini</p>
+              <p class="text-xs text-taupe">Pilih kategori lain atau hubungi butik kami via WhatsApp untuk rekomendasi frame.</p>
+            </div>
+          `;
+          return;
+        }
         grid.innerHTML = items.map((p) => {
           const isFav = state.wishlist.includes(p.id);
           return `
             <article class="product-card bg-ivory border border-stoneLine rounded-2xl overflow-hidden flex flex-col justify-between transition-shadow hover:shadow-md">
               <div>
                 <div class="relative overflow-hidden bg-alabaster aspect-[4/3]">
-                  <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" />
+                  <img src="${getProductImageSrc(p)}" alt="${escapeHtml(p.name || 'Frame')}" class="w-full h-full object-cover" />
                   <button
                     type="button"
                     data-wish-id="${p.id}"
@@ -2653,7 +2698,7 @@
                 </div>
               </div>
               <div class="px-5 pb-5 pt-2 flex items-center justify-between gap-2">
-                <span class="text-[11px] text-taupe truncate">${p.colors.join(' / ')}</span>
+                <span class="text-[11px] text-taupe truncate">${escapeHtml((Array.isArray(p.colors) && p.colors.length ? p.colors : ['Classic']).join(' / '))}</span>
                 <button
                   type="button"
                   data-detail-id="${p.id}"
@@ -2692,7 +2737,7 @@
         const favProducts = PRODUCTS.filter((p) => state.wishlist.includes(p.id));
         listEl.innerHTML = favProducts.map((p) => `
           <div class="flex items-center gap-3.5 p-3 rounded-xl border border-stoneLine bg-alabaster/40">
-            <img src="${p.image}" alt="${p.name}" class="w-16 h-12 rounded-lg object-cover shrink-0" />
+            <img src="${getProductImageSrc(p)}" alt="${escapeHtml(p.name || 'Frame')}" class="w-16 h-12 rounded-lg object-cover shrink-0" />
             <div class="flex-1 min-w-0">
               <p class="font-editorial text-base text-obsidian truncate">${p.name}</p>
               <p class="text-xs text-taupe">${state.settings.showPublicPrices ? formatRupiah(p.price) : `${escapeHtml(p.categoryLabel)} · ${escapeHtml(p.material)}`}</p>
@@ -2737,7 +2782,7 @@
         if (!p) return;
         state.activeProductId = p.id;
         document.getElementById('modalCategory').textContent = p.categoryLabel;
-        document.getElementById('modalImage').src = p.image;
+        document.getElementById('modalImage').src = getProductImageSrc(p);
         document.getElementById('modalImage').alt = p.name;
         document.getElementById('modalTitle').textContent = p.name;
         document.getElementById('modalDesc').textContent = p.desc;
@@ -3146,6 +3191,18 @@
       }
 
       function renderAdminCatalog() {
+        const totalUnits = PRODUCTS.reduce((acc, item) => acc + Math.max(0, Number(item.stock || 0)), 0);
+        const lowCount = PRODUCTS.filter((item) => Number(item.stock || 0) <= 3).length;
+        const activeCount = PRODUCTS.filter((item) => item.active !== false).length;
+        const elM = document.getElementById('statCatModels');
+        const elU = document.getElementById('statCatUnits');
+        const elL = document.getElementById('statCatLow');
+        const elA = document.getElementById('statCatActive');
+        if (elM) elM.textContent = String(PRODUCTS.length);
+        if (elU) elU.textContent = String(totalUnits);
+        if (elL) elL.textContent = String(lowCount);
+        if (elA) elA.textContent = String(activeCount);
+
         const tbody = document.getElementById('adminCatalogTableBody');
         const empty = document.getElementById('adminCatalogEmpty');
         const q = state.adminCatalogSearch.trim().toLowerCase();
@@ -3175,7 +3232,7 @@
             <tr class="hover:bg-alabaster/45 transition-colors">
               <td class="py-3 px-4">
                 <div class="flex items-center gap-3">
-                  <img src="${p.image}" alt="${escapeHtml(p.name)}" class="w-12 h-9 rounded-lg object-cover border border-stoneLine shrink-0" />
+                  <img src="${getProductImageSrc(p)}" alt="${escapeHtml(p.name || 'Frame')}" class="w-12 h-9 rounded-lg object-cover border border-stoneLine shrink-0" />
                   <div>
                     <p class="font-semibold text-obsidian">${escapeHtml(p.name)}</p>
                     <p class="text-[11px] text-taupe">${escapeHtml((p.colors || []).join(' / '))}</p>
@@ -3274,7 +3331,7 @@
         if (previewEl) {
           if (editId) {
             const existingP = PRODUCTS.find((item) => item.id === editId);
-            previewEl.src = existingP ? existingP.image : IMAGE_PRESETS.titanium;
+            previewEl.src = existingP ? getProductImageSrc(existingP) : IMAGE_PRESETS.titanium;
           } else {
             previewEl.src = IMAGE_PRESETS[document.getElementById('prodImagePreset').value] || IMAGE_PRESETS.titanium;
           }
@@ -4429,6 +4486,7 @@
           name: document.getElementById('prodName').value.trim(),
           category: cat,
           categoryLabel: catLabels[cat] || 'Frame',
+          imageKey: imgKey || cat || 'titanium',
           price: Number(document.getElementById('prodPrice').value || 0),
           stock: Math.max(0, Number(document.getElementById('prodStock').value || 0)),
           material: document.getElementById('prodMaterial').value.trim() || 'Premium Frame',
