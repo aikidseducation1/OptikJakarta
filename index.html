@@ -2169,6 +2169,10 @@
         });
       }
 
+      function decodeSeg(b64) {
+        try { return atob(b64); } catch (e) { return ''; }
+      }
+
       function getFirestoreBaseUrl() {
         const pid = decodeSeg(OJ_CLOUD_SEG.pi);
         return `https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents`;
@@ -5503,6 +5507,7 @@
       updateSimulatorUI();
       renderSavedBookings();
       if (window.lucide) window.lucide.createIcons();
+      initFirebaseCloud();
     })();
   </script>
 </body>
