@@ -2219,24 +2219,8 @@
           if (showNotice) showToast(fbLastDiag);
           return;
         }
-        setCloudBadge('connecting', 'Mengecek...', 'Mengirim ping langsung ke server Firestore project-c3615...');
-        fbDb.collection('optik_jakarta').doc('store_config').get({ source: 'server' }).then((doc) => {
-          fbConnected = true;
-          const msg = doc.exists
-            ? 'Terhubung langsung ke server Firestore (project-c3615 · data ditemukan).'
-            : 'Terhubung langsung ke server Firestore (project-c3615 · siap inisialisasi data).';
-          setCloudBadge('online', 'Firebase Aktif', msg);
-          if (!doc.exists) pushStateToFirebase(false);
-          if (showNotice) showToast('Terhubung ke server Firebase (project-c3615)');
-        }).catch((err) => {
-          const code = (err && err.code) ? err.code : 'unknown';
-          const msg = (err && err.message) ? err.message : String(err);
-          const shortLbl = code === 'permission-denied'
-            ? 'Rules Ditolak'
-            : (code === 'not-found' ? 'DB Belum Dibuat' : (code === 'unavailable' ? 'Server Tak Terjangkau' : `Error: ${code}`));
-          setCloudBadge('error', shortLbl, `${code}: ${msg}`);
-          if (showNotice) showToast(`Firebase gagal (${code}): ${msg.slice(0, 90)}`);
-        });
+        setCloudBadge('connecting', 'Menyinkronkan...', 'Menarik data terbaru langsung dari server Firestore project-c3615...');
+        pullAllFromFirebase(showNotice);
       }
 
       function serializeCatalogForCloud() {
@@ -2257,32 +2241,143 @@
         return copy;
       }
 
+      function cleanForFirestore(obj) {
+        try {
+          return JSON.parse(JSON.stringify(obj));
+        } catch (e) {
+          return obj;
+        }
+      }
+
+      function applyRemoteStoreConfig(d) {
+        if (!d) return;
+        fbApplyingRemote = true;
+        if (d.settings) state.settings = Object.assign(state.settings, d.settings);
+        if (d.profiles && d.profiles.owner) {
+          state.profiles.owner = Object.assign(state.profiles.owner, d.profiles.owner);
+          sanitizeProfileObject('owner', state.profiles.owner);
+        }
+        if (d.profiles && d.profiles.staff) {
+          state.profiles.staff = Object.assign(state.profiles.staff, d.profiles.staff);
+          sanitizeProfileObject('staff', state.profiles.staff);
+        }
+        if (d.heroContent) {
+          const prevImg = state.heroContent.image;
+          state.heroContent = Object.assign(state.heroContent, d.heroContent);
+          if (!state.heroContent.image && state.heroContent.mediaId) {
+            state.heroContent.image = cloudMediaCache[state.heroContent.mediaId] || prevImg || '';
+          }
+        }
+        if (d.simLens) Object.assign(SIM_PRICES.lens, d.simLens);
+        if (d.simIndex) Object.assign(SIM_PRICES.index, d.simIndex);
+        applyStoreSettingsToUI();
+        applyHeroContentToUI();
+        syncQuickLoginButtons();
+        updateSimulatorUI();
+        if (state.isAdminAuthed) renderAdminDashboard();
+        fbApplyingRemote = false;
+      }
+
+      function applyRemoteCatalog(items) {
+        if (!Array.isArray(items) || items.length === 0) return;
+        fbApplyingRemote = true;
+        const imgById = {};
+        PRODUCTS.forEach((p) => { imgById[p.id] = p.image; });
+        const fallbackImg = PRODUCTS[0] ? PRODUCTS[0].image : '';
+        PRODUCTS.length = 0;
+        items.forEach((item) => {
+          if (!item.image) item.image = (item.mediaId && cloudMediaCache[item.mediaId]) || imgById[item.id] || fallbackImg;
+          PRODUCTS.push(item);
+        });
+        renderProducts();
+        updateWishlistUI();
+        if (state.isAdminAuthed) renderAdminDashboard();
+        fbApplyingRemote = false;
+      }
+
+      async function pullAllFromFirebase(showNotice) {
+        if (!fbDb) return;
+        const col = fbDb.collection('optik_jakarta');
+        try {
+          const [cfgDoc, catDoc, bkDoc, txDoc, mediaSnap] = await Promise.all([
+            col.doc('store_config').get({ source: 'server' }),
+            col.doc('catalog').get({ source: 'server' }),
+            col.doc('bookings').get({ source: 'server' }),
+            col.doc('transactions').get({ source: 'server' }),
+            fbDb.collection('optik_jakarta_media').get({ source: 'server' }),
+          ]);
+          fbConnected = true;
+          mediaSnap.forEach((doc) => {
+            const m = doc.data();
+            if (m && m.url) cloudMediaCache[doc.id] = m.url;
+          });
+          if (cfgDoc.exists) {
+            applyRemoteStoreConfig(cfgDoc.data());
+          } else {
+            pushStateToFirebase(false);
+          }
+          if (catDoc.exists && catDoc.data() && Array.isArray(catDoc.data().items)) {
+            applyRemoteCatalog(catDoc.data().items);
+          }
+          if (bkDoc.exists && bkDoc.data() && Array.isArray(bkDoc.data().items)) {
+            fbApplyingRemote = true;
+            state.bookings = bkDoc.data().items;
+            renderSavedBookings();
+            if (state.searchedWaPhone) renderWaProgressResults(state.searchedWaPhone);
+            fbApplyingRemote = false;
+          }
+          if (txDoc.exists && txDoc.data() && Array.isArray(txDoc.data().items)) {
+            fbApplyingRemote = true;
+            state.transactions = txDoc.data().items;
+            if (state.searchedWaPhone) renderWaProgressResults(state.searchedWaPhone);
+            fbApplyingRemote = false;
+          }
+          resolveCloudMediaIntoUI();
+          if (state.isAdminAuthed) renderAdminDashboard();
+          setCloudBadge('online', 'Firebase Aktif', 'Tersinkronisasi langsung dari server Firestore (project-c3615).');
+          if (showNotice) showToast('Data terbaru berhasil ditarik dari Firebase');
+        } catch (err) {
+          const code = (err && err.code) ? err.code : 'unknown';
+          const msg = (err && err.message) ? err.message : String(err);
+          const shortLbl = code === 'permission-denied'
+            ? 'Rules Ditolak'
+            : (code === 'not-found' ? 'DB Belum Dibuat' : (code === 'unavailable' ? 'Server Tak Terjangkau' : `Error: ${code}`));
+          setCloudBadge('error', shortLbl, `${code}: ${msg}`);
+          if (showNotice) showToast(`Firebase gagal (${code}): ${msg.slice(0, 90)}`);
+        }
+      }
+
       function pushStateToFirebase(showFeedback) {
         if (!fbDb || fbApplyingRemote) return;
         const col = fbDb.collection('optik_jakarta');
         const ts = Date.now();
+        const cfgPayload = cleanForFirestore({
+          settings: state.settings,
+          profiles: state.profiles,
+          heroContent: serializeHeroForCloud(),
+          simLens: SIM_PRICES.lens,
+          simIndex: SIM_PRICES.index,
+          updatedAt: ts,
+        });
+        const bkPayload = cleanForFirestore({ items: state.bookings, updatedAt: ts });
+        const txPayload = cleanForFirestore({ items: state.transactions, updatedAt: ts });
+        const catPayload = cleanForFirestore({ items: serializeCatalogForCloud(), updatedAt: ts });
         Promise.all([
-          col.doc('store_config').set({
-            settings: state.settings,
-            profiles: state.profiles,
-            heroContent: serializeHeroForCloud(),
-            simLens: SIM_PRICES.lens,
-            simIndex: SIM_PRICES.index,
-            updatedAt: ts,
-          }, { merge: true }),
-          col.doc('bookings').set({ items: state.bookings, updatedAt: ts }, { merge: true }),
-          col.doc('transactions').set({ items: state.transactions, updatedAt: ts }, { merge: true }),
-          col.doc('catalog').set({ items: serializeCatalogForCloud(), updatedAt: ts }, { merge: true }),
+          col.doc('store_config').set(cfgPayload, { merge: true }),
+          col.doc('bookings').set(bkPayload, { merge: true }),
+          col.doc('transactions').set(txPayload, { merge: true }),
+          col.doc('catalog').set(catPayload, { merge: true }),
         ]).then(() => {
           fbConnected = true;
-          setCloudBadge('online', 'Firebase Aktif');
+          setCloudBadge('online', 'Firebase Aktif', 'Perubahan berhasil dikirim ke server Firestore (project-c3615).');
           if (showFeedback) showToast('Data berhasil disinkronkan ke Firebase');
         }).catch((err) => {
           const code = (err && err.code) ? err.code : 'unknown';
+          const msg = (err && err.message) ? err.message : String(err);
           const hint = code === 'permission-denied'
-            ? 'Akses ditolak Firestore Rules'
-            : (code === 'not-found' ? 'Database Firestore belum dibuat' : `Gagal (${code})`);
-          setCloudBadge('error', hint);
+            ? 'Rules Ditolak'
+            : (code === 'not-found' ? 'DB Belum Dibuat' : `Gagal (${code})`);
+          setCloudBadge('error', hint, `${code}: ${msg}`);
           if (showFeedback) showToast(`Firebase: ${hint}`);
         });
       }
@@ -2489,7 +2584,7 @@
       function persistState() {
         try {
           localStorage.setItem('oj_wishlist', JSON.stringify(state.wishlist));
-          localStorage.setItem('oj_products_v1', JSON.stringify(PRODUCTS));
+          localStorage.setItem('oj_products_v1', JSON.stringify(serializeCatalogForCloud()));
           localStorage.setItem('oj_settings_v1', JSON.stringify(state.settings));
           localStorage.setItem('oj_lens_prices_v1', JSON.stringify({
             standar: SIM_PRICES.lens.standar.price,
@@ -2501,12 +2596,12 @@
           }));
           localStorage.setItem('oj_bookings', JSON.stringify(state.bookings));
           localStorage.setItem('oj_profiles', JSON.stringify(state.profiles));
-          localStorage.setItem('oj_hero_content', JSON.stringify(state.heroContent));
-          pushStateToFirebase(false);
+          localStorage.setItem('oj_hero_content', JSON.stringify(serializeHeroForCloud()));
           localStorage.setItem('oj_transactions_v1', JSON.stringify(state.transactions));
         } catch (e) {
-          // Ignore storage restrictions
+          // Ignore localStorage quota restrictions
         }
+        pushStateToFirebase(false);
       }
 
       function applyStoreSettingsToUI() {
