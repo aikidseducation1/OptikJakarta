@@ -391,14 +391,14 @@
                   <i data-lucide="map-pin" class="w-4 h-4 text-champagneDark mt-1 shrink-0"></i>
                   <div>
                     <p class="font-medium text-obsidian">Lokasi Optik Jakarta</p>
-                    <p id="storeAddressDisplay" class="text-taupe text-xs mt-0.5 leading-relaxed">Kebon Jeruk, Jakarta Barat, DKI Jakarta</p>
+                    <p id="storeAddressDisplay" data-cms-key="store_address" class="text-taupe text-xs mt-0.5 leading-relaxed">Kebon Jeruk, Jakarta Barat, DKI Jakarta</p>
                   </div>
                 </div>
                 <div class="flex items-start gap-3.5">
                   <i data-lucide="clock" class="w-4 h-4 text-champagneDark mt-1 shrink-0"></i>
                   <div>
                     <p class="font-medium text-obsidian">Jam Operasional</p>
-                    <p id="storeHoursDisplay" class="text-taupe text-xs mt-0.5">Senin – Minggu, 10.00 – 20.00 WIB</p>
+                    <p id="storeHoursDisplay" data-cms-key="store_hours" class="text-taupe text-xs mt-0.5">Senin – Minggu, 10.00 – 20.00 WIB</p>
                   </div>
                 </div>
                 <div class="flex items-start gap-3.5">
@@ -2479,6 +2479,24 @@
 
       let fbLastDiag = 'Menghubungkan ke Firestore REST API (project-c3615)...';
       let fbPollTimer = null;
+      let lastLocalWriteAt = 0;
+
+      function isUserActivelyEditing() {
+        if (state.isInlineEditing) return true;
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) {
+          return true;
+        }
+        const openModals = ['productFormModal', 'txFormModal', 'editBookingModal', 'customerTxModal'];
+        for (const mId of openModals) {
+          const el = document.getElementById(mId);
+          if (el && !el.classList.contains('hidden')) return true;
+        }
+        if (state.isAdminAuthed && (state.adminTab === 'settings' || state.adminTab === 'profile' || state.adminTab === 'manual')) {
+          return true;
+        }
+        return false;
+      }
 
       function setCloudBadge(status, text, detail) {
         const dot = document.getElementById('fbSyncDot');
@@ -2569,6 +2587,11 @@
       }
 
       async function pullAllFromFirebase(showNotice) {
+        const pullStartedAt = Date.now();
+        // Skip silent background pulls while user is typing/editing or right after saving
+        if (!showNotice && (isUserActivelyEditing() || (pullStartedAt - lastLocalWriteAt < 6000))) {
+          return;
+        }
         try {
           const [cfgRes, catRes, bkRes, txRes, mediaDocs] = await Promise.all([
             fsRestGetDoc('optik_jakarta', 'store_config'),
@@ -2578,6 +2601,10 @@
             fsRestListMedia(),
           ]);
           fbConnected = true;
+          if (!showNotice && (isUserActivelyEditing() || lastLocalWriteAt > pullStartedAt)) {
+            setCloudBadge('online', 'Firebase Aktif', 'Terhubung ke Firestore (project-c3615).');
+            return;
+          }
 
           mediaDocs.forEach((doc) => {
             const parts = String(doc.name || '').split('/');
@@ -2629,6 +2656,7 @@
       async function pushStateToFirebase(showFeedback) {
         if (fbApplyingRemote) return;
         const ts = Date.now();
+        lastLocalWriteAt = ts;
         try {
           await Promise.all([
             fsRestSetDoc('optik_jakarta', 'store_config', {
@@ -2663,13 +2691,10 @@
         pullAllFromFirebase(false);
         if (fbPollTimer) clearInterval(fbPollTimer);
         fbPollTimer = setInterval(() => {
-          if (document.visibilityState === 'visible') {
+          if (document.visibilityState === 'visible' && !isUserActivelyEditing()) {
             pullAllFromFirebase(false);
           }
-        }, 15000);
-        window.addEventListener('focus', () => {
-          pullAllFromFirebase(false);
-        });
+        }, 30000);
       }
 
       function saveSessionState(viewMode) {
@@ -4833,6 +4858,8 @@
         state.settings.whatsapp = document.getElementById('setStoreWa').value.trim() || DEFAULT_STORE_SETTINGS.whatsapp;
         const spToggle = document.getElementById('setShowPublicPrices');
         if (spToggle) state.settings.showPublicPrices = spToggle.checked;
+        state.cmsContent.store_address = state.settings.address;
+        state.cmsContent.store_hours = state.settings.hours;
         persistState();
         applyStoreSettingsToUI();
       applyHeroContentToUI();
@@ -5619,6 +5646,9 @@
         state.heroContent.headline = document.getElementById('setHeroHeadline').value.trim();
         state.heroContent.subtitle = document.getElementById('setHeroSubtitle').value.trim();
         state.heroContent.badge = document.getElementById('setHeroBadge').value.trim();
+        state.cmsContent.hero_headline = state.heroContent.headline;
+        state.cmsContent.hero_subtitle = state.heroContent.subtitle;
+        state.cmsContent.hero_badge = state.heroContent.badge;
         persistState();
         applyHeroContentToUI();
         showToast('Konten halaman depan diperbarui');
@@ -5973,6 +6003,8 @@
         if (nextCms.hero_headline) state.heroContent.headline = nextCms.hero_headline;
         if (nextCms.hero_subtitle) state.heroContent.subtitle = nextCms.hero_subtitle;
         if (typeof nextCms.hero_badge === 'string') state.heroContent.badge = nextCms.hero_badge;
+        if (nextCms.store_address) state.settings.address = nextCms.store_address;
+        if (nextCms.store_hours) state.settings.hours = nextCms.store_hours;
         setInlineEditMode(false);
         persistState();
         showToast('Seluruh perubahan konten tersimpan & disinkronkan ke Firebase');
