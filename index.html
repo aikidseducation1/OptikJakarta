@@ -543,10 +543,10 @@
             <div class="flex items-center gap-2">
               <span class="font-editorial text-base tracking-[0.12em] uppercase text-ivory truncate">Optik Jakarta · Admin</span>
               <span id="adminRoleBadge" class="hidden sm:inline-block px-2 py-0.5 rounded-full bg-champagne/20 text-champagne text-[10px] tracking-wider uppercase font-medium">Pemilik</span>
-              <span id="fbSyncBadge" class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-ivory/80 text-[10px] tracking-wider uppercase font-medium">
+              <button id="fbSyncBadge" type="button" title="Klik untuk cek detail koneksi Firebase" class="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-ivory/90 text-[10px] tracking-wider uppercase font-medium transition-colors cursor-pointer">
                 <span id="fbSyncDot" class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                 <span id="fbSyncText">Menghubungkan...</span>
-              </span>
+              </button>
             </div>
             <span class="block text-[10px] tracking-[0.16em] uppercase text-ivory/60">Manajemen Operasional &amp; 360° Inspector</span>
           </div>
@@ -920,8 +920,12 @@
             <div class="space-y-1">
               <h3 class="font-editorial text-lg text-obsidian">Hak Akses Peran &amp; Reset Data</h3>
               <p class="text-taupe">Kelola nomor WhatsApp &amp; PIN login Pemilik maupun Staff di menu <strong class="text-obsidian">Profil &amp; Akun</strong>.</p>
+              <p id="fbDiagDetail" class="text-[11px] font-mono text-taupe pt-1">Status Firebase: Memeriksa koneksi ke project-c3615...</p>
             </div>
             <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <button id="testCloudConnBtn" type="button" class="px-4 py-2.5 rounded-full border border-stoneLine hover:border-obsidian text-obsidian font-medium transition-colors">
+                Tes Koneksi
+              </button>
               <button id="forceCloudSyncBtn" type="button" class="px-4 py-2.5 rounded-full bg-obsidian text-ivory hover:bg-charcoal font-medium transition-colors">
                 Sinkronkan ke Firebase
               </button>
@@ -1010,7 +1014,7 @@
               </div>
               <div>
                 <label for="myProfPin" class="block text-taupe font-medium mb-1">PIN Login (4-6 digit)</label>
-                <input id="myProfPin" type="password" inputmode="numeric" minlength="4" maxlength="6" required class="w-full px-3.5 py-2.5 rounded-xl bg-alabaster/60 border border-stoneLine text-obsidian tracking-[0.2em] focus:outline-none focus:border-champagne" />
+                <input id="myProfPin" type="password" inputmode="numeric" minlength="4" maxlength="6" placeholder="Kosongkan jika tetap (SHA-256)" class="w-full px-3.5 py-2.5 rounded-xl bg-alabaster/60 border border-stoneLine text-obsidian tracking-[0.12em] focus:outline-none focus:border-champagne" />
               </div>
             </div>
             <button type="submit" class="w-full py-3 rounded-full bg-obsidian text-ivory hover:bg-charcoal text-xs tracking-[0.12em] uppercase font-medium transition-colors">
@@ -1044,7 +1048,7 @@
               </div>
               <div>
                 <label for="staffProfPin" class="block text-taupe font-medium mb-1">PIN Login Staff</label>
-                <input id="staffProfPin" type="password" inputmode="numeric" minlength="4" maxlength="6" required class="w-full px-3.5 py-2.5 rounded-xl bg-alabaster/60 border border-stoneLine text-obsidian tracking-[0.2em] focus:outline-none focus:border-champagne" />
+                <input id="staffProfPin" type="password" inputmode="numeric" minlength="4" maxlength="6" placeholder="Kosongkan jika tetap (SHA-256)" class="w-full px-3.5 py-2.5 rounded-xl bg-alabaster/60 border border-stoneLine text-obsidian tracking-[0.12em] focus:outline-none focus:border-champagne" />
               </div>
             </div>
             <button type="submit" class="w-full py-3 rounded-full bg-champagne text-obsidian hover:bg-obsidian hover:text-ivory text-xs tracking-[0.12em] uppercase font-semibold transition-colors">
@@ -1972,8 +1976,8 @@
         adminRole: null,
         adminTab: 'overview',
         profiles: {
-          owner: { name: 'Pemilik Optik', title: 'Owner / Super Admin', whatsapp: '0822-9868-8189', pin: '1234', active: true },
-          staff: { name: 'Staf Optometris', title: 'Optometris & Kasir', whatsapp: '0815-1000-2000', pin: '5678', active: true },
+          owner: { name: 'Pemilik Optik', title: 'Owner / Super Admin', whatsapp: '0822-9868-8189', pinHash: '0d21b971ce36343145e71067472f04fe6d2bcec40f3e1538e2ffe36bc8ca8bd5', active: true },
+          staff: { name: 'Staf Optometris', title: 'Optometris & Kasir', whatsapp: '0815-1000-2000', pinHash: '796efd46e0feb97d2e0364e8892c822e7cffc9d07953586c638f9a9620d65332', active: true },
         },
         heroContent: {
           headline: 'Kejernihan presisi dalam balutan desain yang tenang.',
@@ -2032,8 +2036,14 @@
           const savedProfiles = localStorage.getItem('oj_profiles');
           if (savedProfiles) {
             const pObj = JSON.parse(savedProfiles);
-            if (pObj && pObj.owner) state.profiles.owner = Object.assign(state.profiles.owner, pObj.owner);
-            if (pObj && pObj.staff) state.profiles.staff = Object.assign(state.profiles.staff, pObj.staff);
+            if (pObj && pObj.owner) {
+              state.profiles.owner = Object.assign(state.profiles.owner, pObj.owner);
+              sanitizeProfileObject('owner', state.profiles.owner);
+            }
+            if (pObj && pObj.staff) {
+              state.profiles.staff = Object.assign(state.profiles.staff, pObj.staff);
+              sanitizeProfileObject('staff', state.profiles.staff);
+            }
           }
           const savedHero = localStorage.getItem('oj_hero_content');
           if (savedHero) {
@@ -2187,15 +2197,46 @@
         try { return atob(b64); } catch (e) { return ''; }
       }
 
-      function setCloudBadge(status, text) {
+      let fbLastDiag = 'Menghubungkan ke Firestore (project-c3615)...';
+
+      function setCloudBadge(status, text, detail) {
         const dot = document.getElementById('fbSyncDot');
         const lbl = document.getElementById('fbSyncText');
+        const diagEl = document.getElementById('fbDiagDetail');
         if (lbl) lbl.textContent = text;
+        if (detail) fbLastDiag = detail;
+        if (diagEl) diagEl.textContent = 'Status Firebase: ' + fbLastDiag;
         if (dot) {
           dot.className = status === 'online'
             ? 'w-1.5 h-1.5 rounded-full bg-emerald-400'
             : (status === 'error' ? 'w-1.5 h-1.5 rounded-full bg-red-400' : 'w-1.5 h-1.5 rounded-full bg-amber-400');
         }
+      }
+
+      function testFirebaseServerConnection(showNotice) {
+        if (!fbDb) {
+          setCloudBadge('error', 'SDK Belum Siap', 'SDK Firebase belum termuat (cek koneksi internet atau pemblokir iklan).');
+          if (showNotice) showToast(fbLastDiag);
+          return;
+        }
+        setCloudBadge('connecting', 'Mengecek...', 'Mengirim ping langsung ke server Firestore project-c3615...');
+        fbDb.collection('optik_jakarta').doc('store_config').get({ source: 'server' }).then((doc) => {
+          fbConnected = true;
+          const msg = doc.exists
+            ? 'Terhubung langsung ke server Firestore (project-c3615 · data ditemukan).'
+            : 'Terhubung langsung ke server Firestore (project-c3615 · siap inisialisasi data).';
+          setCloudBadge('online', 'Firebase Aktif', msg);
+          if (!doc.exists) pushStateToFirebase(false);
+          if (showNotice) showToast('Terhubung ke server Firebase (project-c3615)');
+        }).catch((err) => {
+          const code = (err && err.code) ? err.code : 'unknown';
+          const msg = (err && err.message) ? err.message : String(err);
+          const shortLbl = code === 'permission-denied'
+            ? 'Rules Ditolak'
+            : (code === 'not-found' ? 'DB Belum Dibuat' : (code === 'unavailable' ? 'Server Tak Terjangkau' : `Error: ${code}`));
+          setCloudBadge('error', shortLbl, `${code}: ${msg}`);
+          if (showNotice) showToast(`Firebase gagal (${code}): ${msg.slice(0, 90)}`);
+        });
       }
 
       function serializeCatalogForCloud() {
@@ -2266,7 +2307,7 @@
           }
           fbDb = firebase.firestore();
           try {
-            fbDb.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+            fbDb.settings({ experimentalForceLongPolling: true, useFetchStreams: false, merge: true });
           } catch (e) {}
           if (typeof firebase.storage === 'function') {
             try { fbStorage = firebase.storage(); } catch (e) { fbStorage = null; }
@@ -2280,22 +2321,8 @@
             }
           }, 10000);
 
-          // Immediate ping to verify server connectivity & surface exact error
-          col.doc('store_config').get().then((doc) => {
-            clearTimeout(connectGuard);
-            fbConnected = true;
-            setCloudBadge('online', 'Firebase Aktif');
-            if (!doc.exists) {
-              pushStateToFirebase(false);
-            }
-          }).catch((err) => {
-            clearTimeout(connectGuard);
-            const code = (err && err.code) ? err.code : 'offline';
-            const hint = code === 'permission-denied'
-              ? 'Rules Ditolak'
-              : (code === 'not-found' ? 'DB Belum Dibuat' : 'Mode Lokal');
-            setCloudBadge('error', hint);
-          });
+          // Immediate live server ping (bypasses local cache)
+          testFirebaseServerConnection(false);
 
           col.doc('store_config').onSnapshot((doc) => {
             clearTimeout(connectGuard);
@@ -2308,8 +2335,14 @@
             const d = doc.data() || {};
             fbApplyingRemote = true;
             if (d.settings) state.settings = Object.assign(state.settings, d.settings);
-            if (d.profiles && d.profiles.owner) state.profiles.owner = Object.assign(state.profiles.owner, d.profiles.owner);
-            if (d.profiles && d.profiles.staff) state.profiles.staff = Object.assign(state.profiles.staff, d.profiles.staff);
+            if (d.profiles && d.profiles.owner) {
+              state.profiles.owner = Object.assign(state.profiles.owner, d.profiles.owner);
+              sanitizeProfileObject('owner', state.profiles.owner);
+            }
+            if (d.profiles && d.profiles.staff) {
+              state.profiles.staff = Object.assign(state.profiles.staff, d.profiles.staff);
+              sanitizeProfileObject('staff', state.profiles.staff);
+            }
             if (d.heroContent) {
               const prevImg = state.heroContent.image;
               state.heroContent = Object.assign(state.heroContent, d.heroContent);
@@ -2322,6 +2355,18 @@
             applyStoreSettingsToUI();
             applyHeroContentToUI();
             syncQuickLoginButtons();
+      const syncBadgeBtn = document.getElementById('fbSyncBadge');
+      if (syncBadgeBtn) {
+        syncBadgeBtn.addEventListener('click', () => {
+          testFirebaseServerConnection(true);
+        });
+      }
+      const testConnBtn = document.getElementById('testCloudConnBtn');
+      if (testConnBtn) {
+        testConnBtn.addEventListener('click', () => {
+          testFirebaseServerConnection(true);
+        });
+      }
       const forceSyncBtn = document.getElementById('forceCloudSyncBtn');
       if (forceSyncBtn) {
         forceSyncBtn.addEventListener('click', () => {
@@ -2329,6 +2374,7 @@
           pushStateToFirebase(true);
         });
       }
+      restoreSessionState();
       initFirebaseCloud();
             updateSimulatorUI();
             if (state.isAdminAuthed) renderAdminDashboard();
@@ -2390,6 +2436,54 @@
         } catch (err) {
           setCloudBadge('error', 'Mode Lokal');
         }
+      }
+
+      function saveSessionState(viewMode) {
+        try {
+          const payload = {
+            isAdminAuthed: Boolean(state.isAdminAuthed),
+            adminRole: state.adminRole || null,
+            adminTab: state.adminTab || 'overview',
+            view: viewMode || (document.getElementById('adminView') && !document.getElementById('adminView').classList.contains('hidden') ? 'admin' : 'storefront'),
+            loggedInCustomerWa: state.loggedInCustomerWa || null,
+          };
+          localStorage.setItem('oj_session', JSON.stringify(payload));
+        } catch (e) {}
+      }
+
+      function clearSessionState() {
+        try { localStorage.removeItem('oj_session'); } catch (e) {}
+      }
+
+      function restoreSessionState() {
+        try {
+          const raw = localStorage.getItem('oj_session');
+          if (!raw) return;
+          const sess = JSON.parse(raw);
+          if (!sess || typeof sess !== 'object') return;
+          if (sess.isAdminAuthed && (sess.adminRole === 'owner' || sess.adminRole === 'staff')) {
+            if (sess.adminRole === 'staff' && state.profiles.staff.active === false) {
+              clearSessionState();
+              return;
+            }
+            state.isAdminAuthed = true;
+            state.adminRole = sess.adminRole;
+            state.adminTab = sess.adminTab || 'overview';
+            state.loggedInCustomerWa = null;
+            updateAuthHeaderUI();
+            if (sess.view === 'admin') {
+              showAdminView();
+            }
+          } else if (sess.loggedInCustomerWa) {
+            state.isAdminAuthed = false;
+            state.adminRole = null;
+            state.loggedInCustomerWa = sess.loggedInCustomerWa;
+            updateAuthHeaderUI();
+            const pInput = document.getElementById('progressPhoneInput');
+            if (pInput) pInput.value = maskPhone(sess.loggedInCustomerWa);
+            renderWaProgressResults(sess.loggedInCustomerWa);
+          }
+        } catch (e) {}
       }
 
       function persistState() {
@@ -2783,6 +2877,7 @@
       function showAdminView() {
         document.getElementById('storefrontView').classList.add('hidden');
         document.getElementById('adminView').classList.remove('hidden');
+        saveSessionState('admin');
         window.scrollTo({ top: 0, behavior: 'instant' });
         renderAdminDashboard();
       }
@@ -3933,7 +4028,7 @@
         document.getElementById('myProfName').value = me.name || '';
         document.getElementById('myProfTitle').value = me.title || '';
         document.getElementById('myProfWa').value = me.whatsapp || '';
-        document.getElementById('myProfPin').value = me.pin || '';
+        document.getElementById('myProfPin').value = '';
 
         document.getElementById('ownerStaffProfileForm').classList.toggle('hidden', !isOwner);
         document.getElementById('staffRoleInfoCard').classList.toggle('hidden', isOwner);
@@ -3943,20 +4038,91 @@
           document.getElementById('staffProfName').value = st.name || '';
           document.getElementById('staffProfTitle').value = st.title || '';
           document.getElementById('staffProfWa').value = st.whatsapp || '';
-          document.getElementById('staffProfPin').value = st.pin || '';
+          document.getElementById('staffProfPin').value = '';
         }
       }
 
       function syncQuickLoginButtons() {
-        const btns = document.querySelectorAll('.quick-pin-btn');
-        if (btns[0]) {
-          btns[0].dataset.quickWa = state.profiles.owner.whatsapp;
-          btns[0].dataset.quickPin = state.profiles.owner.pin;
+        // No-op in production (PINs are SHA-256 hashed and never exposed in DOM)
+      }
+
+      // Pure-JS SHA-256 fallback (for file:// or non-HTTPS contexts) + Web Crypto API primary
+      function sha256Fallback(ascii) {
+        function rightRotate(v, a) { return (v >>> a) | (v << (32 - a)); }
+        const maxWord = Math.pow(2, 32);
+        let result = '';
+        const words = [];
+        const asciiBitLength = ascii.length * 8;
+        const hash = [];
+        const k = [];
+        let primeCounter = 0;
+        const isComposite = {};
+        for (let candidate = 2; primeCounter < 64; candidate++) {
+          if (!isComposite[candidate]) {
+            for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+            hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+            k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+          }
         }
-        if (btns[1]) {
-          btns[1].dataset.quickWa = state.profiles.staff.whatsapp;
-          btns[1].dataset.quickPin = state.profiles.staff.pin;
+        ascii += '\x80';
+        while ((ascii.length % 64) - 56) ascii += '\x00';
+        for (let i = 0; i < ascii.length; i++) {
+          const j = ascii.charCodeAt(i);
+          words[i >> 2] |= j << (((3 - i) % 4) * 8);
         }
+        words[words.length] = (asciiBitLength / maxWord) | 0;
+        words[words.length] = asciiBitLength;
+        for (let j = 0; j < words.length;) {
+          const w = words.slice(j, (j += 16));
+          const oldHash = hash.slice(0);
+          for (let i = 0; i < 64; i++) {
+            const w15 = w[i - 15], w2 = w[i - 2];
+            const a = hash[0], e = hash[4];
+            const temp1 = hash[7]
+              + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+              + ((e & hash[5]) ^ (~e & hash[6]))
+              + k[i]
+              + (w[i] = i < 16 ? w[i] : (
+                w[i - 16]
+                + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+                + w[i - 7]
+                + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+              ) | 0);
+            const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+              + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+            hash.unshift((temp1 + temp2) | 0);
+            hash[4] = (hash[4] + temp1) | 0;
+            hash.pop();
+          }
+          for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+        }
+        for (let i = 0; i < 8; i++) {
+          for (let j = 3; j + 1; j--) {
+            const b = (hash[i] >> (j * 8)) & 255;
+            result += (b < 16 ? '0' : '') + b.toString(16);
+          }
+        }
+        return result;
+      }
+
+      async function hashPin(role, rawPin) {
+        const salted = `oj-v1:${role}:${String(rawPin || '').trim()}`;
+        if (window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
+          try {
+            const buf = new TextEncoder().encode(salted);
+            const digest = await window.crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+          } catch (e) {}
+        }
+        return sha256Fallback(salted);
+      }
+
+      function sanitizeProfileObject(role, obj) {
+        if (!obj || typeof obj !== 'object') return;
+        if (obj.pin && !obj.pinHash) {
+          obj.pinHash = sha256Fallback(`oj-v1:${role}:${String(obj.pin).trim()}`);
+        }
+        delete obj.pin;
       }
 
       function getRoleAccountByWa(rawWa) {
@@ -3964,9 +4130,9 @@
         if (!norm) return null;
         const ownerNorm = normalizeWaDigits(state.profiles.owner.whatsapp || state.settings.whatsapp || '0822-9868-8189');
         const staffNorm = normalizeWaDigits(state.profiles.staff.whatsapp || '0815-1000-2000');
-        if (norm === ownerNorm) return { role: 'owner', pin: state.profiles.owner.pin || '1234', label: `${state.profiles.owner.name} (Pemilik)`, active: true };
-        if (norm === staffNorm) return { role: 'staff', pin: state.profiles.staff.pin || '5678', label: `${state.profiles.staff.name} (Staff)`, active: state.profiles.staff.active !== false };
-        return { role: 'customer', pin: '', label: 'Pelanggan', active: true };
+        if (norm === ownerNorm) return { role: 'owner', pinHash: state.profiles.owner.pinHash || '0d21b971ce36343145e71067472f04fe6d2bcec40f3e1538e2ffe36bc8ca8bd5', label: `${state.profiles.owner.name} (Pemilik)`, active: true };
+        if (norm === staffNorm) return { role: 'staff', pinHash: state.profiles.staff.pinHash || '796efd46e0feb97d2e0364e8892c822e7cffc9d07953586c638f9a9620d65332', label: `${state.profiles.staff.name} (Staff)`, active: state.profiles.staff.active !== false };
+        return { role: 'customer', pinHash: '', label: 'Pelanggan', active: true };
       }
 
       function syncPinFieldVisibility() {
@@ -4005,7 +4171,7 @@
         });
       });
 
-      document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
+      document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const waVal = document.getElementById('loginWaInput').value.trim();
         const pinVal = document.getElementById('adminPinInput').value.trim();
@@ -4025,7 +4191,8 @@
             errEl.classList.remove('hidden');
             return;
           }
-          if (pinVal !== acc.pin) {
+          const enteredHash = await hashPin(acc.role, pinVal);
+          if (enteredHash !== acc.pinHash) {
             errEl.textContent = acc.role === 'owner'
               ? 'PIN Pemilik tidak sesuai.'
               : 'PIN Staff tidak sesuai.';
@@ -4040,6 +4207,7 @@
           document.getElementById('adminLoginModal').classList.add('hidden');
           updateAuthHeaderUI();
           showAdminView();
+          saveSessionState('admin');
           showToast('Masuk sebagai ' + acc.label);
         } else {
           // Customer role: direct access to their own order & appointment progress only
@@ -4052,18 +4220,20 @@
           document.getElementById('progressPhoneInput').value = maskPhone(waVal);
           renderWaProgressResults(waVal);
           document.getElementById('cek-progres').scrollIntoView({ behavior: 'smooth' });
+          saveSessionState('storefront');
           showToast('Masuk sebagai Pelanggan (' + maskPhone(waVal) + ')');
         }
       });
 
       // Admin Navigation & Filter Listeners
-      document.getElementById('backToStoreBtn').addEventListener('click', showStorefrontView);
+      document.getElementById('backToStoreBtn').addEventListener('click', () => { showStorefrontView(); saveSessionState('storefront'); });
       document.getElementById('adminLogoutBtn').addEventListener('click', () => {
         state.isAdminAuthed = false;
         state.adminRole = null;
         state.loggedInCustomerWa = null;
         updateAuthHeaderUI();
         showStorefrontView();
+        clearSessionState();
         showToast('Berhasil keluar dari akun');
       });
       document.getElementById('adminNewTxBtn').addEventListener('click', () => openTxFormModal(null, null));
@@ -4073,6 +4243,7 @@
         btn.addEventListener('click', () => {
           state.adminTab = btn.dataset.adminTab;
           renderAdminDashboard();
+          saveSessionState('admin');
         });
       });
 
@@ -5107,14 +5278,20 @@
 
       
       // Profile Settings & Owner Content Editor Listeners
-      document.getElementById('myProfileForm').addEventListener('submit', (e) => {
+      document.getElementById('myProfileForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const isOwner = state.adminRole === 'owner';
+        const roleKey = isOwner ? 'owner' : 'staff';
         const target = isOwner ? state.profiles.owner : state.profiles.staff;
         target.name = document.getElementById('myProfName').value.trim() || target.name;
         target.title = document.getElementById('myProfTitle').value.trim() || target.title;
         target.whatsapp = document.getElementById('myProfWa').value.trim() || target.whatsapp;
-        target.pin = document.getElementById('myProfPin').value.trim() || target.pin;
+        const newPin = document.getElementById('myProfPin').value.trim();
+        if (newPin) {
+          target.pinHash = await hashPin(roleKey, newPin);
+          document.getElementById('myProfPin').value = '';
+        }
+        delete target.pin;
         if (isOwner) {
           state.settings.whatsapp = target.whatsapp;
           applyStoreSettingsToUI();
@@ -5125,14 +5302,19 @@
         showToast('Profil Anda berhasil disimpan');
       });
 
-      document.getElementById('ownerStaffProfileForm').addEventListener('submit', (e) => {
+      document.getElementById('ownerStaffProfileForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         if (state.adminRole !== 'owner') return;
         state.profiles.staff.active = document.getElementById('staffActiveToggle').checked;
         state.profiles.staff.name = document.getElementById('staffProfName').value.trim() || state.profiles.staff.name;
         state.profiles.staff.title = document.getElementById('staffProfTitle').value.trim() || state.profiles.staff.title;
         state.profiles.staff.whatsapp = document.getElementById('staffProfWa').value.trim() || state.profiles.staff.whatsapp;
-        state.profiles.staff.pin = document.getElementById('staffProfPin').value.trim() || state.profiles.staff.pin;
+        const newStPin = document.getElementById('staffProfPin').value.trim();
+        if (newStPin) {
+          state.profiles.staff.pinHash = await hashPin('staff', newStPin);
+          document.getElementById('staffProfPin').value = '';
+        }
+        delete state.profiles.staff.pin;
         persistState();
         syncQuickLoginButtons();
         showToast('Profil & akses Staff diperbarui');
