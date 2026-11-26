@@ -2236,9 +2236,13 @@
           fbConnected = true;
           setCloudBadge('online', 'Firebase Aktif');
           if (showFeedback) showToast('Data berhasil disinkronkan ke Firebase');
-        }).catch(() => {
-          setCloudBadge('error', 'Mode Lokal');
-          if (showFeedback) showToast('Gagal sinkronisasi Firebase (periksa koneksi atau Firestore Rules)');
+        }).catch((err) => {
+          const code = (err && err.code) ? err.code : 'unknown';
+          const hint = code === 'permission-denied'
+            ? 'Akses ditolak Firestore Rules'
+            : (code === 'not-found' ? 'Database Firestore belum dibuat' : `Gagal (${code})`);
+          setCloudBadge('error', hint);
+          if (showFeedback) showToast(`Firebase: ${hint}`);
         });
       }
 
@@ -2261,12 +2265,40 @@
             firebase.initializeApp(cfg);
           }
           fbDb = firebase.firestore();
+          try {
+            fbDb.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+          } catch (e) {}
           if (typeof firebase.storage === 'function') {
             try { fbStorage = firebase.storage(); } catch (e) { fbStorage = null; }
           }
           const col = fbDb.collection('optik_jakarta');
 
+          // Timeout guard so badge never stays stuck on "Menghubungkan..."
+          const connectGuard = setTimeout(() => {
+            if (!fbConnected) {
+              setCloudBadge('error', 'Cek Rules / Koneksi');
+            }
+          }, 10000);
+
+          // Immediate ping to verify server connectivity & surface exact error
+          col.doc('store_config').get().then((doc) => {
+            clearTimeout(connectGuard);
+            fbConnected = true;
+            setCloudBadge('online', 'Firebase Aktif');
+            if (!doc.exists) {
+              pushStateToFirebase(false);
+            }
+          }).catch((err) => {
+            clearTimeout(connectGuard);
+            const code = (err && err.code) ? err.code : 'offline';
+            const hint = code === 'permission-denied'
+              ? 'Rules Ditolak'
+              : (code === 'not-found' ? 'DB Belum Dibuat' : 'Mode Lokal');
+            setCloudBadge('error', hint);
+          });
+
           col.doc('store_config').onSnapshot((doc) => {
+            clearTimeout(connectGuard);
             fbConnected = true;
             setCloudBadge('online', 'Firebase Aktif');
             if (!doc.exists) {
@@ -2301,8 +2333,9 @@
             updateSimulatorUI();
             if (state.isAdminAuthed) renderAdminDashboard();
             fbApplyingRemote = false;
-          }, () => {
-            setCloudBadge('error', 'Mode Lokal');
+          }, (err) => {
+            const code = (err && err.code) ? err.code : '';
+            setCloudBadge('error', code === 'permission-denied' ? 'Rules Ditolak' : 'Mode Lokal');
           });
 
           col.doc('bookings').onSnapshot((doc) => {
