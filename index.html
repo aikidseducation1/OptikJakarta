@@ -530,7 +530,7 @@
           <a href="#simulasi" class="hover:text-obsidian transition-colors">Estimasi</a>
           <a href="#janji-temu" class="hover:text-obsidian transition-colors">Janji Temu</a>
           <a href="#cek-progres" class="hover:text-obsidian transition-colors">Cek Progres</a>
-          <button id="footerAdminBtn" type="button" class="text-champagneDark hover:text-obsidian font-medium transition-colors">Portal Admin</button>
+          <button id="footerAdminBtn" type="button" class="text-champagneDark hover:text-obsidian font-medium transition-colors">Masuk</button>
         </div>
         <p>© 2026 Optik Jakarta</p>
       </div>
@@ -1277,8 +1277,8 @@
     <div class="bg-ivory border border-stoneLine rounded-2xl max-w-md w-full p-7 space-y-5 shadow-2xl fade-in">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-[10px] tracking-[0.2em] uppercase text-champagneDark font-medium">Akses Terpadu WhatsApp</p>
-          <h3 class="font-editorial text-2xl text-obsidian mt-0.5">Masuk Optik Jakarta</h3>
+          <p class="text-[10px] tracking-[0.2em] uppercase text-champagneDark font-medium">Login WhatsApp</p>
+          <h3 class="font-editorial text-2xl text-obsidian mt-0.5">Masuk dengan WhatsApp</h3>
         </div>
         <button id="closeAdminLoginBtn" type="button" aria-label="Tutup Login" class="p-1.5 rounded-full hover:bg-alabaster text-obsidian">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -1286,7 +1286,7 @@
       </div>
 
       <p class="text-xs text-taupe leading-relaxed">
-        Masukkan nomor WhatsApp Anda. Sistem otomatis mengarahkan tampilan sesuai peran: <strong>Pelanggan</strong> (cukup nomor WA), <strong>Staff</strong>, atau <strong>Pemilik</strong> (dengan PIN).
+        Masukkan nomor WhatsApp Anda untuk melanjutkan.
       </p>
 
       <form id="adminLoginForm" class="space-y-4">
@@ -1295,12 +1295,12 @@
           <input id="loginWaInput" type="tel" required placeholder="Contoh: 08xx-xxxx-xxxx" class="w-full px-4 py-3 rounded-xl bg-alabaster/70 border border-stoneLine text-sm text-obsidian focus:outline-none focus:border-champagne" />
         </div>
         <div id="loginPinWrap" class="hidden">
-          <label for="adminPinInput" class="block text-xs uppercase tracking-wider text-taupe font-medium mb-1.5">PIN Keamanan (Khusus Pemilik &amp; Staff)</label>
+          <label for="adminPinInput" class="block text-xs uppercase tracking-wider text-taupe font-medium mb-1.5">PIN Keamanan</label>
           <input id="adminPinInput" type="password" inputmode="numeric" maxlength="6" placeholder="Masukkan PIN" class="w-full px-4 py-3 rounded-xl bg-alabaster/70 border border-stoneLine text-sm tracking-[0.25em] text-obsidian focus:outline-none focus:border-champagne" />
         </div>
         <p id="adminLoginError" class="hidden text-xs text-red-600"></p>
         <button type="submit" class="w-full py-3 rounded-full bg-obsidian text-ivory text-xs tracking-[0.14em] uppercase font-medium hover:bg-charcoal transition-colors">
-          Masuk Sekarang
+          Masuk
         </button>
       </form>
     </div>
